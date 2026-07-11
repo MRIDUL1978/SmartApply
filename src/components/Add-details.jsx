@@ -51,18 +51,6 @@ const AddDetails = () => {
     } finally {
       setParsing(false)
     }
-    
-    // if (file.type === "application/pdf") {
-    //   const reader = new FileReader();
-    //   reader.onload = (event) => {  
-    //     const textContent = event.target.result;
-    //     setForm({ ...updatedForm, resumeText: textContent });
-    //   };
-    //   reader.readAsText(file);
-    // } else {
-    //   toast.error("Please upload a valid .txt file");
-    //   setForm(updatedForm); 
-    // }
   }
 
   const handleSubmit = async(e) => {

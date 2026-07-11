@@ -11,7 +11,7 @@ import {db} from "../../config/firebase"
 import { useAuth } from "../../context/AuthContext";
 import {  useNavigate } from "react-router";
 const Results = lazy(() => import("./Results"));
-import { callGemini } from "../../../utils/geminiApi";
+import {auth} from "../../config/firebase"
 
 const DisplayDetailsSection = () => {
   const {user} = useAuth();
@@ -87,17 +87,50 @@ const DisplayDetailsSection = () => {
               setLoading(false);
               return;
             }
+
             if (response && response.success) {
               console.log("Job scanned successfully", response.data);
               try {
                 console.log("Analysing with AI")
-                const parsedData = await callGemini(userData.resumeText,response.data)
+                const user = auth.currentUser;
+                if(!user) {
+                  toast.error("Please login to continue")
+                  setLoading(false);
+                  return;
+                }
+                const idToken = await user.getIdToken();
+
+                const payload = {
+                  resume: userData.resumeText,
+                  jobName: response.data.title, 
+                  company: response.data.company, 
+                  jobDescription: response.data.description 
+                };
+
+                const apiResponse = await fetch("http://localhost:5000/api/generate", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                  },
+                  body: JSON.stringify(payload)
+                });
+
+                if(!apiResponse.ok) {
+                  const errorData = await apiResponse.json().catch(() => ({}))
+                  throw new Error(errorData.message || "Backend server rejected the request")
+                }
+
+                const data = await apiResponse.json();
+                const parsedData = JSON.parse(data.result)
+
                 setResult(parsedData)
+                
                 await saveHistory(response.data,parsedData)
                 toast.success(`Success!!!  Scraped ${response.data.title}`);
               } catch (err) {
                 console.log('Error in AI Analysis',err)
-                toast.error('Error in AI Analysis')
+                toast.error(err.message)
               }
             } else {
               toast.error("Failed to scan job");
