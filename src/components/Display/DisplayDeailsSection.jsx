@@ -107,7 +107,7 @@ const DisplayDetailsSection = () => {
                   jobDescription: response.data.description 
                 };
 
-                const apiResponse = await fetch("http://localhost:5000/api/generate", {
+                const apiResponse = await fetch("https://smartapply-backend-db1e.onrender.com/api/generate", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
