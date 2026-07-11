@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Apply",
+  "description": "AI Resume Analyzer",
+  "version": "1.0",
+  "action":{
+    "default_popup": "index.html"
+  },
+  "permissions": [
+    "identity",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions":[
+    "https://*.linkedin.com/*",
+    "https://openrouter.ai/*"
+  ],
+  "content_scripts":[
+    {
+      "matches":["https://*.linkedin.com/*"],
+      "js":["content.js"],
+      "run_at":"document_idle"
+    }
+  ]
+}
