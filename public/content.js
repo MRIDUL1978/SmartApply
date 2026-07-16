@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         const selectors = {
         title: [
-          "[class = '_69ebbc25 _6398628b']"
+          "[class = 'fa281b20 _1070cc76']"
         ],
         company: [
           "[aria-label^='Company, '] a",
