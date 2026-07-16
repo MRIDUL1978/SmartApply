@@ -24,23 +24,27 @@ Built with a secure **Thick Client Architecture**, it leverages Firebase on the 
 Follow these steps to run the extension locally on your machine.
 
 ### 1. Clone the Repository
-\`\`\`bash
+
+```bash
 git clone https://github.com/MRIDUL1978/SmartApply.git
 cd SmartApply
-\`\`\`
+```
 
 ### 2. Install Dependencies
-\`\`\`bash
-npm install
-\`\`\`
 
+```bash
+npm install
+```
 
 ### 3. Build the Extension
+
 Because Chrome cannot read raw React files, you must compile the code:
-\`\`\`bash
+
+```bash
 npm run build
-\`\`\`
-This will generate a \`dist\` (or \`build\`) folder containing the final extension files.
+```
+
+This will generate a `dist` (or `build`) folder containing the final extension files.
 
 ### 4. Load into Chrome
 1. Open Google Chrome and navigate to \`chrome://extensions/\`.
