@@ -21,11 +21,7 @@ const AddDetails = () => {
       toast.error("Data already exists. Please delete it first.");
       navigate("/");
     }
-  }, [navigate]);
-
-  const handleInputChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  }, [userData, navigate]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -42,10 +38,10 @@ const AddDetails = () => {
     try {
       const extractedText = await extractTextFromPdf(file)
       setForm({...updatedForm, resumeText: extractedText})
-      console.log("PDF text Extracted")
+
       toast.success("PDF parsed successfully")
     }catch (err) {
-      console.log(err)
+      console.error(err)
       toast.error("Could not read the PDF")
       setForm({resumeName: "", resumeText: ""})
     } finally {
@@ -57,10 +53,11 @@ const AddDetails = () => {
     e.preventDefault();
     if(!user){
       toast.error("Please login first");
+      return;
     }
 
     if(!form.resumeName) {
-      toast.error("Please uplaod resume first")
+      toast.error("Please upload resume first")
       return
     }
 
@@ -75,7 +72,7 @@ const AddDetails = () => {
       toast.success("Profile Saved Successfully");
       navigate("/");
     } catch (error) {
-      console.log(error)
+      console.error(error)
       toast.error("Failed to save profile");
     } finally {
       setsaving(false)

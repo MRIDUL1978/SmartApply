@@ -1,5 +1,3 @@
-console.log("Smart Apply Scraper Loaded")
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "scraper_job") {
 
@@ -14,8 +12,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             break;
           }
         }
-        console.log("Clickable Spans", clickAbleSpans)
-
         const selectors = {
         title: [
           "[class = '_00cb4a6c _5c34f183']"
@@ -49,8 +45,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         description: getText(selectors.description) || "Unknown Job description",
       }
 
-      console.log("Scraped Data", jobData)
-
       if (jobData.description && jobData.description !== "Unknown Job description") {
         sendResponse({ success: true, data: jobData });
       } else {
@@ -58,7 +52,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
 
       } catch (err) {
-        console.log("Error in scraping", err)
         sendResponse({ success: false, error: err.message });
       }
     }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useNavigate } from 'react-router'
 import { FadeLoader } from 'react-spinners'
+import { toast } from 'react-toastify'
 
 const ForgotPassword = () => {
   const {resetPassword} = useAuth()
@@ -20,8 +21,8 @@ const ForgotPassword = () => {
       setTimeout(() => {
         navigate('/login')
       }, 2500);
-    } catch (err) {
-      console.log(err)
+    } catch {
+      toast.error("Failed to send reset link. Please try later.")
     } finally {
       setloading(false)
     }

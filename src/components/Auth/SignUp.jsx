@@ -12,7 +12,7 @@ import { FaFacebook } from "react-icons/fa";
 import { useAuth } from '../../context/AuthContext'
 
 const SignUp = () => {
-  const { user,singInWithGoogle, signInWithFacebook } = useAuth();
+  const { user,signInWithGoogle, signInWithFacebook } = useAuth();
   const [form, setform] = useState({
     email: '',
     password: ''
@@ -33,10 +33,9 @@ const SignUp = () => {
     setloading(true);
     try {
       await createUserWithEmailAndPassword(auth, form.email, form.password);
-      console.log('Account created successfully');
       toast.success('Sign Up successful');
     } catch (err) {
-      console.log('Error creating account', err);
+      toast.error("Failed to create account. Please try later.");
       seterrors(err.message)
     } finally {
       setloading(false);
@@ -121,7 +120,7 @@ const SignUp = () => {
 
             <div className="flex justify-center gap-4">
               <button
-                onClick={singInWithGoogle}
+                onClick={signInWithGoogle}
                 type="button"
                 aria-label="Sign in with Google"
                 className="flex items-center justify-center p-3 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-300 cursor-pointer"

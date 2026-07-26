@@ -38,7 +38,6 @@ const DeleteAccount = () => {
         toast.success("Account permanently deleted.");
         navigate('/login');
       } catch (error) {
-        console.log('Error deleting account:', error);
         if (error.code === 'auth/requires-recent-login') {
           Swal.fire({
             icon: 'warning',

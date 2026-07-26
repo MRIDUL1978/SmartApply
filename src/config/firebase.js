@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { GoogleAuthProvider,getAuth , sendPasswordResetEmail } from "firebase/auth/web-extension";
+import { GoogleAuthProvider,getAuth } from "firebase/auth/web-extension";
 import { getFirestore } from "firebase/firestore";
 
 // Firebase configuration

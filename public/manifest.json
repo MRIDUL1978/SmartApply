@@ -9,13 +9,14 @@
   "permissions": [
     "identity",
     "activeTab",
-    "scripting",
-    "storage"
+    "scripting"
   ],
   "host_permissions":[
-    "https://*.linkedin.com/*",
-    "https://openrouter.ai/*"
+    "https://*.linkedin.com/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
   "content_scripts":[
     {
       "matches":["https://*.linkedin.com/*"],

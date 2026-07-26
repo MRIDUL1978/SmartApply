@@ -13,7 +13,7 @@ import { toast } from "react-toastify";
 import { FaFacebook } from "react-icons/fa";
 
 const Login = () => {
-  const { singInWithGoogle, signInWithFacebook, user, setUser } = useAuth();
+  const { signInWithGoogle, signInWithFacebook, user } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [errors, seterrors] = useState('');
@@ -32,12 +32,11 @@ const Login = () => {
     e.preventDefault();
     setloading(true);
     try {
-      const result = await signInWithEmailAndPassword(auth, form.email, form.password);
-      console.log('User logged in successfully');
+      await signInWithEmailAndPassword(auth, form.email, form.password);
       toast.success('Login Successfull');
     } catch (err) {
-      console.log('Error logging in', err);
-      seterrors(err.message)
+      toast.error("Failed to login. Please check your credentials.");
+      seterrors(err.message);
     }finally{
       setloading(false);
     }
@@ -135,7 +134,7 @@ const Login = () => {
 
             <div className="flex justify-center gap-4">
               <button
-                onClick={singInWithGoogle}
+                onClick={signInWithGoogle}
                 aria-label="Sign in with Google"
                 className="flex items-center justify-center p-3 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-300 cursor-pointer"
               >

@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const singInWithGoogle = async () => {
+  const signInWithGoogle = async () => {
     try {
       const clientId = "223590547831-dljuu77tq6h7ckn2ne679rspakjhmfpn.apps.googleusercontent.com";
 
@@ -39,8 +39,6 @@ export const AuthProvider = ({ children }) => {
 
       chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (responseUrl) => {
         if (chrome.runtime.lastError || !responseUrl) {
-          console.log("Chrome Identity Error", chrome.runtime.lastError);
-          // toast.error("Login Failed" + chrome.runtime.lastError.message);
           return;
         }
 
@@ -55,16 +53,14 @@ export const AuthProvider = ({ children }) => {
 
         const credential = GoogleAuthProvider.credential(null, token);
         await signInWithCredential(auth, credential);
-        toast.success("Login Successfull");
+        toast.success("Login Successful");
       });
-    } catch (err) {
-      console.log(err);
+    } catch {
       toast.error("Login Failed");
     }
   };
 
   const signInWithFacebook = async () => {
-    console.log("signInWithFacebook");
     try{
       const facebookAppId = "1962297734698708";
       const redirectUri = chrome.identity.getRedirectURL();
@@ -72,7 +68,7 @@ export const AuthProvider = ({ children }) => {
 
       chrome.identity.launchWebAuthFlow({url:authUrl,interactive:true},async(responseUrl)=>{
         if(chrome.identity.lastError || !responseUrl){
-          console.log("Chrome Identity Error",chrome.identity.lastError);
+          toast.error("Facebook login failed");
           return;
         }
 
@@ -87,10 +83,10 @@ export const AuthProvider = ({ children }) => {
 
         const credential = FacebookAuthProvider.credential(token);
         await signInWithCredential(auth, credential);
-        toast.success("Login Successfull");
+        toast.success("Login Successful");
       });
     }catch(err){
-      console.log(err);
+      console.error(err);
       toast.error('Login Failed');
     }
   }
@@ -101,13 +97,11 @@ export const AuthProvider = ({ children }) => {
         if(token){
           try{
             await fetch('https://accounts.google.com/o/oauth2/revoke?token=' + token);
-            console.log("Token Revoked from server");
           }catch(err){
-            console.log("Token Revoke Error,Might already be invalid",err);
+            console.error("Token Revoke Error",err);
           }
 
           chrome.identity.removeCachedAuthToken({token:token},async ()=>{
-            console.log("Token Removed");
             await performFirebaseLogout();
           })
         }else{
@@ -115,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         }
       });
     } catch (err) {
-      console.log('Logout Error',err);
+      console.error('Logout Error',err);
     }
   };  
 
@@ -125,7 +119,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       navigate("/");
     } catch (err) {
-      console.log('Perform Firebase Logout Error',err);
+      console.error('Perform Firebase Logout Error',err);
     }
   }
 
@@ -134,7 +128,7 @@ export const AuthProvider = ({ children }) => {
       await (sendPasswordResetEmail(auth, email));
       toast.success("Password Reset email sent!. Please check your inbox");
     } catch (err){
-      console.log("Password Reset error ", err);
+      console.error("Password Reset error ", err);
       if(err.code === 'auth/user-not-found') {
         toast.error("No account found with this email.");
       } else {
@@ -145,7 +139,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, singInWithGoogle, signInWithFacebook ,logOut , resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithFacebook ,logOut , resetPassword }}>
       {!loading && children}
     </AuthContext.Provider>
   );

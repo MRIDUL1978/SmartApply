@@ -7,7 +7,6 @@ import {db} from "../../config/firebase"
 import { collection, doc, getDocs, deleteDoc,query,orderBy } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router";
 import { generateCoverLetterPDF } from "../../../utils/pdfGenerator";
 
 const StoredData = () => {
@@ -16,16 +15,14 @@ const StoredData = () => {
   const [jobHistory, setJobHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setdownloading] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     getJobHistory().then((data) => {
       setJobHistory(data || []);
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  console.log(jobHistory);
 
   const deleteJob = (id) => {
     deleteJobHistory(id)
@@ -36,7 +33,7 @@ const StoredData = () => {
         setdownloading(true)
         await generateCoverLetterPDF(job.coverLetter, userData?.resumeName, job.jobTitle)
       } catch (err) {
-        console.log("Error Generating PDF",err)
+        console.error("Error Generating PDF",err)
       } finally {
         setdownloading(false)
       }
@@ -53,7 +50,7 @@ const StoredData = () => {
         ...doc.data()
       }));
     }catch(err){
-      console.log("Error fetching history",err);
+      console.error("Error fetching history",err);
     }
   }
 
@@ -82,10 +79,10 @@ const StoredData = () => {
       const docRef = doc(db,"users",user.uid,"history",historyDocId);
       await deleteDoc(docRef);
       setJobHistory((prevHistory)=> prevHistory.filter((item)=>item.id !== historyDocId));
-      console.log('Deleted Scan');
+
       
     }catch(err){
-      console.log("Error Deleting Scan",err);
+      console.error("Error Deleting Scan",err);
     }
   }
 

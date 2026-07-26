@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useUser } from "../../context/UserContext";
 import { IoMdDownload } from "react-icons/io";
-import { DOMSVGFactory } from "pdfjs-dist"; 
 import { generateCoverLetterPDF } from "../../../utils/pdfGenerator";
 
 const Results = ({ result }) => {
@@ -13,7 +12,7 @@ const Results = ({ result }) => {
       setdownloading(true) 
       await generateCoverLetterPDF(result.cover_letter, userData?.resumeName, result.jobTitle)
     } catch (err) {
-      console.log("Error Generating PDF",err)
+      console.error("Error Generating PDF",err)
     } finally {
       setdownloading(false)
     }

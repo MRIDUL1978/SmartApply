@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import React, { useState } from "react";
 import { useUser } from "../../context/UserContext";
 import { MdDelete } from "react-icons/md";
@@ -50,7 +49,7 @@ const DisplayDetailsSection = () => {
         navigate('/');
       }
     }catch(error){
-      console.log('Error in deleting user data',error)
+      console.error('Error in deleting user data',error)
     }
   };
 
@@ -66,9 +65,9 @@ const DisplayDetailsSection = () => {
         reason: aiResult.reason,
         coverLetter: aiResult.cover_letter,
       });
-      console.log("Saved To History");
+
     }catch(err){
-      console.log('Error saving to History',err);
+      console.error('Error saving to History',err);
     }
   }
 
@@ -89,9 +88,7 @@ const DisplayDetailsSection = () => {
             }
 
             if (response && response.success) {
-              console.log("Job scanned successfully", response.data);
               try {
-                console.log("Analysing with AI")
                 const user = auth.currentUser;
                 if(!user) {
                   toast.error("Please login to continue")
@@ -129,7 +126,7 @@ const DisplayDetailsSection = () => {
                 await saveHistory(response.data,parsedData)
                 toast.success(`Success!!!  Scraped ${response.data.title}`);
               } catch (err) {
-                console.log('Error in AI Analysis',err)
+                console.error('Error in AI Analysis',err)
                 toast.error(err.message)
               }
             } else {
@@ -140,7 +137,7 @@ const DisplayDetailsSection = () => {
         );
       });
     } catch (error) {
-      console.log(error);
+      console.error(error);
       setLoading(false);
     }
   };
@@ -194,10 +191,10 @@ const DisplayDetailsSection = () => {
             <button
               onClick={handleScanJob}
               disabled={loading}
-              className={`w-full rounded-full bg-linear-to-r from-blue-600 to-indigo-600 text-white px-6 py-3.5 font-bold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 ${
+              className={`w-full rounded-full text-white px-6 py-3.5 font-bold shadow-lg transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 ${
                 loading
                   ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-green-600 hover:bg-green-700 hover:shadow-lg transform active:scale-95"
+                  : "bg-linear-to-r from-blue-600 to-indigo-600 hover:shadow-xl hover:scale-[1.02] active:scale-95"
               }`}
             >
               <span>Scan Job</span>

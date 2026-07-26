@@ -7,16 +7,14 @@ const UserContext = createContext();
 export const UserProvider = ({ children }) => {
   const {user} = useAuth();
   const [userData, setuserData] = useState(null);
-  const [loading, setloading] = useState(null);
+  const [loading, setloading] = useState(false);
 
   useEffect(() => {
     if(!user){
-      setuserData(null);
-      setloading(null);
       return;
     }
-    setloading(true)
 
+    setloading(true);
     const docRef = doc(db,"users",user.uid);
 
     const unsubscribe = onSnapshot(docRef,(docSnap)=>{
@@ -24,16 +22,22 @@ export const UserProvider = ({ children }) => {
         setuserData(docSnap.data())
       } 
       else{
-        console.log('No Profile Found for this user')
         setuserData(null);
       }
       setloading(false)
     },(err)=>{
-      console.log('Error fetching user Data',err);
+      console.error('Error fetching user Data',err);
       setloading(false);
     });
 
     return ()=> unsubscribe();
+  }, [user])
+
+  useEffect(() => {
+    if(!user){
+      setuserData(null);
+      setloading(false);
+    }
   }, [user])
 
   return (
