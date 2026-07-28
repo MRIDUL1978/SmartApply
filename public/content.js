@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         const selectors = {
         title: [
-          "[class = '_00cb4a6c _5c34f183']"
+          "[data-sdui-component='com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob'] span p",
         ],
         company: [
           "[aria-label^='Company, '] a",
