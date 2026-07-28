@@ -88,7 +88,6 @@ const DisplayDetailsSection = () => {
             }
 
             if (response && response.success) {
-              console.log("Scraped Job Data:", response.data);
               try {
                 const user = auth.currentUser;
                 if(!user) {
