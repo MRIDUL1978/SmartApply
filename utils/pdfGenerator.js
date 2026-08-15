@@ -143,16 +143,35 @@ export const generateResumeLetterPDF = async (resume) => {
   if (resume.education && resume.education.length > 0) {
     drawSectionHeader('Education');
     resume.education.forEach(edu => {
-      checkPageBreak(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${edu.degree} - ${edu.school}`, margin, yPos);
+      checkPageBreak(12);
       
+      // Fix 1: Reset font size to 10 (it was inheriting 12 from the header)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      
+      // Calculate date width first so we can prevent text overlap
       doc.setFont('helvetica', 'normal');
-      const dateWidth = doc.getTextWidth(edu.dates || '');
-      doc.text(edu.dates || '', pageWidth - margin - dateWidth, yPos);
-      yPos += 5;
+      const dateText = edu.dates || '';
+      const dateWidth = doc.getTextWidth(dateText);
+      
+      // Fix 2: Wrap the degree/school text if it's too long
+      doc.setFont('helvetica', 'bold');
+      const eduText = `${edu.degree} - ${edu.school}`;
+      // Max width is the total line width minus the date width and 5mm padding
+      const maxEduWidth = maxLineWidth - dateWidth - 5; 
+      const eduLines = doc.splitTextToSize(eduText, maxEduWidth);
+      
+      doc.text(eduLines, margin, yPos);
+      
+      // Print date on the right side
+      doc.setFont('helvetica', 'normal');
+      doc.text(dateText, pageWidth - margin - dateWidth, yPos);
+      
+      // Move Y down based on how many lines the degree text took
+      yPos += (eduLines.length * 5); 
 
       if (edu.details) {
+        doc.setFont('helvetica', 'normal');
         const lines = doc.splitTextToSize(edu.details, maxLineWidth);
         checkPageBreak(lines.length * 5);
         doc.text(lines, margin, yPos);
@@ -162,10 +181,71 @@ export const generateResumeLetterPDF = async (resume) => {
     });
   }
 
+  // Projects
+  if (resume.projects && resume.projects.length > 0) {
+    drawSectionHeader('Projects');
+    resume.projects.forEach(proj => {
+      checkPageBreak(12);
+      
+      // Title & Links
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(proj.title || '', margin, yPos);
+      
+      doc.setFont('helvetica', 'italic');
+      const linkWidth = doc.getTextWidth(proj.links || '');
+      doc.text(proj.links || '', pageWidth - margin - linkWidth, yPos);
+      yPos += 5;
+
+      // Project Bullets
+      doc.setFont('helvetica', 'normal');
+      if (proj.highlights) {
+        proj.highlights.forEach(highlight => {
+          // Clean up weird AI artifacts before printing
+          const cleanText = highlight.replace(/[^\x20-\x7E]/g, ''); 
+          const lines = doc.splitTextToSize(`• ${cleanText}`, maxLineWidth - 5);
+          checkPageBreak(lines.length * 5);
+          doc.text(lines, margin + 5, yPos);
+          yPos += (lines.length * 5);
+        });
+      }
+      yPos += 4;
+    });
+  }
+
+ // Honours & Awards
+  if (resume.honours_and_awards && resume.honours_and_awards.length > 0) {
+    drawSectionHeader('Honours & Awards');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); // Fix: Reset font size from 12 back to 10
+    resume.honours_and_awards.forEach(award => {
+      const cleanAward = award.replace(/[^\x20-\x7E]/g, '');
+      const lines = doc.splitTextToSize(`• ${cleanAward}`, maxLineWidth - 5);
+      checkPageBreak(lines.length * 5);
+      doc.text(lines, margin + 5, yPos);
+      yPos += (lines.length * 5);
+    });
+  }
+
+  // Extra-Curricular
+  if (resume.extra_curricular && resume.extra_curricular.length > 0) {
+    drawSectionHeader('Extra-Curricular');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); // Fix: Reset font size from 12 back to 10
+    resume.extra_curricular.forEach(item => {
+      const cleanItem = item.replace(/[^\x20-\x7E]/g, '');
+      const lines = doc.splitTextToSize(`• ${cleanItem}`, maxLineWidth - 5);
+      checkPageBreak(lines.length * 5);
+      doc.text(lines, margin + 5, yPos);
+      yPos += (lines.length * 5);
+    });
+  }
+
   // 6. Certifications
   if (resume.certifications && resume.certifications.length > 0) {
     drawSectionHeader('Certifications');
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); // Fix: Reset font size from 12 back to 10
     resume.certifications.forEach(cert => {
       const lines = doc.splitTextToSize(`• ${cert}`, maxLineWidth - 5);
       checkPageBreak(lines.length * 5);
