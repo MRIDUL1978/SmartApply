@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useUser } from "../../context/UserContext";
 import { IoMdDownload } from "react-icons/io";
-import { generateCoverLetterPDF } from "../../../utils/pdfGenerator";
+import { generateCoverLetterPDF , generateResumeLetterPDF} from "../../../utils/pdfGenerator";
 
 const Results = ({ result }) => {
   const { userData } = useUser();
@@ -17,6 +17,17 @@ const Results = ({ result }) => {
       setdownloading(false)
     }
   };
+
+  const downloadResumePDF = async () => {
+    try {
+      setdownloading(true)
+      await generateResumeLetterPDF(result.tailored_resume)
+    } catch(err) {
+      console.error("Error Generating Resume PDF",err)
+    }finally {
+      setdownloading(false)
+    }
+  }
 
   return (
     <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden mt-4">
@@ -97,6 +108,19 @@ const Results = ({ result }) => {
           </span>
           <button
             onClick={downloadPDF}
+            disabled={downloading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
+          >
+            <span className="material-symbols-outlined text-[18px]"><IoMdDownload size={24}/></span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-gray-500 font-medium">
+            Download Resume
+          </span>
+          <button
+            onClick={downloadResumePDF}
             disabled={downloading}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
           >
