@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         company: [
           "[aria-label^='Company, '] a",
           "[aria-label^='Company, ']",
-          "[class='fee11784 _20dea5d9 _50ed7e79 _6398628b']"
+          "[class='_847d4fca c0502140']"
         ],
         description: [
           "[data-sdui-component='com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob'] span",
