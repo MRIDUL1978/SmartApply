@@ -17,6 +17,8 @@ const DisplayDetailsSection = () => {
   const { userData } = useUser();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [generation, setGeneration] = useState(null);
+  const [warnings, setWarnings] = useState([]);
   const navigate = useNavigate();
 
   const handleDelete = async () => {
@@ -74,6 +76,7 @@ const DisplayDetailsSection = () => {
   const handleScanJob = async() => {
     try {
       setLoading(true);
+      setWarnings([]);
 
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
@@ -88,6 +91,7 @@ const DisplayDetailsSection = () => {
             }
 
             if (response && response.success) {
+              console.log(response)
               try {
                 const user = auth.currentUser;
                 if(!user) {
@@ -119,12 +123,27 @@ const DisplayDetailsSection = () => {
                 }
 
                 const data = await apiResponse.json();
-                const parsedData = JSON.parse(data.result)
+                const parsedData = typeof data.result === "string"
+                  ? JSON.parse(data.result)
+                  : data.result;
+                const generationStatus = data.generation || {
+                  analysis: parsedData?.cover_letter ? "success" : "failed",
+                  resume: parsedData?.tailored_resume ? "success" : "failed"
+                };
 
-                setResult(parsedData)
-                
-                await saveHistory(response.data,parsedData)
-                toast.success(`Success!!!  Scraped ${response.data.title}`);
+                setResult({ ...parsedData, jobTitle: response.data.title });
+                setGeneration(generationStatus);
+                setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+
+                if (generationStatus.analysis === "success") {
+                  await saveHistory(response.data,parsedData);
+                }
+
+                if (data.warnings?.length) {
+                  toast.warn("Scan completed with a partial result");
+                } else {
+                  toast.success(`Success! Scanned ${response.data.title}`);
+                }
               } catch (err) {
                 console.error('Error in AI Analysis',err)
                 toast.error(err.message)
@@ -216,7 +235,7 @@ const DisplayDetailsSection = () => {
         <section>
           {result && (
             <Suspense fallback={<div>Loading...</div>}>
-              <Results result={result} />
+              <Results result={result} generation={generation} warnings={warnings} />
             </Suspense>
           )}
         </section>
@@ -239,4 +258,3 @@ const DisplayDetailsSection = () => {
 };
 
 export default DisplayDetailsSection;
-
