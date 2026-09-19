@@ -37,33 +37,194 @@ const registerFonts = async doc => {
   });
 };
 
-export const generateCoverLetterPDF = async (coverLetterText, resumeName = "User", jobTitle = "Job") => {
+const safePdfUrl = value => {
+  const rawUrl = String(value || "").trim();
+  try {
+    const url = new URL(rawUrl);
+    return ["http:", "https:", "mailto:"].includes(url.protocol) ? rawUrl : "";
+  } catch {
+    return "";
+  }
+};
+
+const normalizeLinks = value => Array.isArray(value)
+  ? value.map(link => ({
+      label: normalizeText(link?.label || "Link"),
+      url: safePdfUrl(link?.url)
+    })).filter(link => link.label && link.url)
+  : [];
+
+const canonicalLinkLabel = (url, label = "", context = "") => {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.startsWith("mailto:")) return "Email";
+  if (lowerUrl.includes("linkedin.com")) return "LinkedIn";
+  if (lowerUrl.includes("github.com")) return "GitHub";
+  if (/\blive\b/i.test(`${label} ${context}`)) return "Live";
+  return normalizeText(label || "Link");
+};
+
+const visibleLinksFromText = value => {
+  const text = String(value || "");
+  const candidates = [];
+  const addCandidate = (rawUrl, index, label = "") => {
+    const cleaned = rawUrl.replace(/[),.;\]}]+$/g, "");
+    const url = cleaned.includes("@") && !cleaned.includes("/")
+      ? `mailto:${cleaned}`
+      : /^(?:https?:\/\/|mailto:)/i.test(cleaned)
+        ? cleaned
+        : `https://${cleaned}`;
+    if (!safePdfUrl(url)) return;
+    candidates.push({
+      url,
+      label: canonicalLinkLabel(url, label),
+      context: normalizeText(text.slice(Math.max(0, index - 100), index + cleaned.length + 100))
+    });
+  };
+
+  const urlPattern = /(?:https?:\/\/|www\.|(?:linkedin|github)\.com\/)[^\s|<>]+/gi;
+  for (const match of text.matchAll(urlPattern)) addCandidate(match[0], match.index || 0);
+  const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+  for (const match of text.matchAll(emailPattern)) addCandidate(match[0], match.index || 0, "Email");
+  return candidates;
+};
+
+const normalizedMatchText = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+const profileLinkKind = value => {
+  const url = safePdfUrl(value);
+  if (!url) return "";
+  const parsed = new URL(url);
+  if (parsed.protocol === "mailto:") return "email";
+  if (parsed.hostname.replace(/^www\./, "") === "linkedin.com") return "linkedin";
+  if (parsed.hostname.replace(/^www\./, "") === "github.com" && parsed.pathname.split("/").filter(Boolean).length <= 1) {
+    return "github-profile";
+  }
+  return "";
+};
+
+export const enrichResumeLinks = (resume, sourceLinks = [], sourceText = "") => {
+  const projects = Array.isArray(resume?.projects)
+    ? resume.projects.map(project => ({ ...project, links: normalizeLinks(project?.links) }))
+    : [];
+  const profileLinks = normalizeLinks(resume?.profile_links);
+  const existingUrls = new Set([
+    ...profileLinks.map(link => link.url),
+    ...projects.flatMap(project => project.links.map(link => link.url))
+  ]);
+  const annotationLinks = Array.isArray(sourceLinks) ? sourceLinks : [];
+  const suppliedProfileKinds = new Set([
+    ...profileLinks.map(link => profileLinkKind(link.url)),
+    ...annotationLinks.map(link => profileLinkKind(link?.url))
+  ].filter(Boolean));
+  const recoveredVisibleLinks = visibleLinksFromText(sourceText).filter(link => {
+    const kind = profileLinkKind(link.url);
+    return !kind || !suppliedProfileKinds.has(kind);
+  });
+  const verifiedSourceLinks = [...annotationLinks, ...recoveredVisibleLinks];
+
+  verifiedSourceLinks.forEach(link => {
+    const url = safePdfUrl(link?.url);
+    if (!url || existingUrls.has(url)) return;
+    existingUrls.add(url);
+    const outputLink = {
+      label: canonicalLinkLabel(url, link?.label, link?.context),
+      url
+    };
+    const matchSource = normalizedMatchText(`${link?.context || ""} ${url}`);
+    const project = projects.find(item => {
+      const title = normalizedMatchText(item?.title);
+      return title.length >= 4 && matchSource.includes(title);
+    });
+    if (project) project.links.push(outputLink);
+    else profileLinks.push(outputLink);
+  });
+
+  return { ...resume, profile_links: profileLinks, projects };
+};
+
+const coverLayoutPresets = [
+  { bodySize: 12, leading: 6.35, paragraphGap: 5.2 },
+  { bodySize: 11.5, leading: 6, paragraphGap: 4.6 },
+  { bodySize: 11, leading: 5.65, paragraphGap: 4 }
+];
+
+export const buildCoverLetterPDF = async (coverLetterText, resumeName = "User", jobTitle = "Job") => {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   await registerFonts(doc);
-  const margin = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const contentWidth = pageWidth - margin * 2;
-  const paragraphs = normalizeText(coverLetterText).split(/\n\s*\n/);
-  let y = margin;
+  const margin = { top: 23, right: 23, bottom: 22, left: 23 };
+  const contentWidth = pageWidth - margin.left - margin.right;
+  const bottomEdge = pageHeight - margin.bottom;
+  const paragraphs = String(coverLetterText || "")
+    .replace(/\r/g, "")
+    .split(/\n\s*\n/)
+    .map(block => block.split("\n").map(normalizeText).filter(Boolean))
+    .filter(block => block.length > 0);
+  const headerLines = paragraphs[0] || [normalizeText(resumeName || "Applicant")];
+  const companyLines = paragraphs[1] || [];
+  const salutationLines = paragraphs[2] || ["Dear Hiring Team,"];
+  const closingLines = paragraphs.length > 3 ? paragraphs[paragraphs.length - 1] : [];
+  const bodyParagraphs = paragraphs.length > 4 ? paragraphs.slice(3, -1) : paragraphs.slice(3);
+  const subject = normalizeText(jobTitle && jobTitle !== "Job" ? `Re: Application for ${jobTitle}` : "Application");
 
-  doc.setFont("OpenSans", "normal");
-  doc.setFontSize(11);
+  const splitLines = (textLines, width, style, size) => {
+    doc.setFont("OpenSans", style);
+    doc.setFontSize(size);
+    return textLines.flatMap(line => doc.splitTextToSize(line, width));
+  };
 
-  paragraphs.forEach((paragraph, paragraphIndex) => {
-    const lines = doc.splitTextToSize(paragraph, contentWidth);
+  const estimateHeight = preset => {
+    const nameHeight = splitLines([headerLines[0]], contentWidth, "bold", 15).length * 7;
+    const contactHeight = splitLines(headerLines.slice(1), contentWidth, "normal", 10.5).length * 5;
+    const companyHeight = splitLines(companyLines, contentWidth, "normal", preset.bodySize).length * preset.leading;
+    const subjectHeight = splitLines([subject], contentWidth, "bold", preset.bodySize).length * preset.leading;
+    const salutationHeight = splitLines(salutationLines, contentWidth, "normal", preset.bodySize).length * preset.leading;
+    const bodyHeight = bodyParagraphs.reduce((height, block) =>
+      height + splitLines(block, contentWidth, "normal", preset.bodySize).length * preset.leading + preset.paragraphGap, 0);
+    const closingHeight = splitLines(closingLines, contentWidth, "normal", preset.bodySize).length * preset.leading;
+    return nameHeight + contactHeight + companyHeight + subjectHeight + salutationHeight + bodyHeight + closingHeight + 29;
+  };
+
+  const preset = coverLayoutPresets.find(candidate => estimateHeight(candidate) <= bottomEdge - margin.top)
+    || coverLayoutPresets[coverLayoutPresets.length - 1];
+  let y = margin.top;
+
+  const ensureSpace = height => {
+    if (y + height <= bottomEdge) return;
+    doc.addPage();
+    y = margin.top;
+  };
+
+  const writeBlock = (textLines, { style = "normal", size = preset.bodySize, leading = preset.leading, gap = 0 } = {}) => {
+    const lines = splitLines(textLines, contentWidth, style, size);
+    ensureSpace(Math.min(lines.length * leading, bottomEdge - margin.top));
+    doc.setFont("OpenSans", style);
+    doc.setFontSize(size);
+    doc.setTextColor(0, 0, 0);
     lines.forEach(line => {
-      if (y > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-      }
-      doc.text(line, margin, y);
-      y += 5.5;
+      ensureSpace(leading);
+      doc.text(line, margin.left, y);
+      y += leading;
     });
-    if (paragraphIndex < paragraphs.length - 1) y += 3;
-  });
+    y += gap;
+  };
 
+  writeBlock([headerLines[0]], { style: "bold", size: 15, leading: 7, gap: 0.5 });
+  if (headerLines.length > 1) writeBlock(headerLines.slice(1), { size: 10.5, leading: 5, gap: 6 });
+  else y += 6;
+  if (companyLines.length) writeBlock(companyLines, { gap: 5 });
+  writeBlock([subject], { style: "bold", gap: 6 });
+  writeBlock(salutationLines, { gap: 5 });
+  bodyParagraphs.forEach(block => writeBlock(block, { gap: preset.paragraphGap }));
+  if (closingLines.length) writeBlock(closingLines);
+
+  return doc;
+};
+
+export const generateCoverLetterPDF = async (coverLetterText, resumeName = "User", jobTitle = "Job") => {
+  const doc = await buildCoverLetterPDF(coverLetterText, resumeName, jobTitle);
   const cleanJobTitle = normalizeText(jobTitle || "Job").replace(/[^a-zA-Z0-9_-]+/g, "_");
   const cleanResumeName = normalizeText(resumeName || "User").replace(/[^a-zA-Z0-9_.-]+/g, "_");
   doc.save(`${cleanResumeName}_${cleanJobTitle}_cover_letter.pdf`);
@@ -86,6 +247,23 @@ export const buildResumePDF = async resume => {
     doc.setFont("OpenSans", style);
     doc.setFontSize(size);
     doc.setTextColor(color, color, color);
+  };
+
+  const linkedText = (text, url, x, baseline, { align = "left", underline = true } = {}) => {
+    const label = normalizeText(text);
+    const safeUrl = safePdfUrl(url);
+    const width = doc.getTextWidth(label);
+    const startX = align === "right" ? x - width : align === "center" ? x - width / 2 : x;
+    doc.text(label, x, baseline, { align });
+    if (safeUrl) {
+      doc.link(startX, baseline - 3.5, width, 4.6, { url: safeUrl });
+      if (underline) {
+        doc.setDrawColor(75, 75, 75);
+        doc.setLineWidth(0.15);
+        doc.line(startX, baseline + 0.6, startX + width, baseline + 0.6);
+      }
+    }
+    return width;
   };
 
   const addPage = () => {
@@ -143,13 +321,18 @@ export const buildResumePDF = async resume => {
 
   const drawEntryHeader = (leftText, rightText = "", linkStyle = false) => {
     const left = normalizeText(leftText);
-    const right = normalizeText(rightText);
+    const rightLinks = normalizeLinks(rightText);
+    const right = rightLinks.length
+      ? rightLinks.map(link => link.label).join(" | ")
+      : normalizeText(rightText);
     setFont(linkStyle ? "bold" : "bold", bodySize);
     const rightWidth = right ? Math.min(doc.getTextWidth(right), contentWidth * 0.37) : 0;
     const gap = right ? 5 : 0;
     const leftWidth = contentWidth - rightWidth - gap;
     const leftLines = getLines(left, leftWidth, "bold");
-    const rightLines = right ? getLines(right, Math.max(rightWidth, contentWidth * 0.25), linkStyle ? "italic" : "normal") : [];
+    const rightLines = rightLinks.length
+      ? [right]
+      : right ? getLines(right, Math.max(rightWidth, contentWidth * 0.25), linkStyle ? "italic" : "normal") : [];
     const lineCount = Math.max(leftLines.length, rightLines.length, 1);
     ensureSpace(lineCount * bodyLeading + 1);
 
@@ -159,14 +342,35 @@ export const buildResumePDF = async resume => {
     });
     rightLines.forEach((line, index) => {
       setFont(linkStyle ? "italic" : "normal", right ? 9 : bodySize, 55);
-      doc.text(line, pageWidth - margin.right, y + index * bodyLeading, { align: "right" });
+      if (rightLinks.length && index === 0) {
+        const separator = " | ";
+        const separatorWidth = doc.getTextWidth(separator);
+        const totalWidth = rightLinks.reduce((total, link) => total + doc.getTextWidth(link.label), 0) +
+          separatorWidth * Math.max(rightLinks.length - 1, 0);
+        let linkX = pageWidth - margin.right - totalWidth;
+        rightLinks.forEach((link, linkIndex) => {
+          const width = linkedText(link.label, link.url, linkX, y + index * bodyLeading);
+          linkX += width;
+          if (linkIndex < rightLinks.length - 1) {
+            doc.text(separator, linkX, y + index * bodyLeading);
+            linkX += separatorWidth;
+          }
+        });
+      } else {
+        doc.text(line, pageWidth - margin.right, y + index * bodyLeading, { align: "right" });
+        const legacyUrl = safePdfUrl(right);
+        if (legacyUrl) doc.link(pageWidth - margin.right - doc.getTextWidth(line), y - 3.5, doc.getTextWidth(line), 4.6, { url: legacyUrl });
+      }
     });
     y += lineCount * bodyLeading + 0.7;
   };
 
   const estimateEntryHeight = (leftText, rightText, highlights = []) => {
     setFont("bold");
-    const rightWidth = rightText ? Math.min(doc.getTextWidth(normalizeText(rightText)), contentWidth * 0.37) : 0;
+    const rightValue = Array.isArray(rightText)
+      ? normalizeLinks(rightText).map(link => link.label).join(" | ")
+      : normalizeText(rightText);
+    const rightWidth = rightValue ? Math.min(doc.getTextWidth(rightValue), contentWidth * 0.37) : 0;
     const headerLines = getLines(leftText, contentWidth - rightWidth - (rightText ? 5 : 0), "bold").length;
     const bulletLines = highlights.reduce((total, item) => total + getLines(item, contentWidth - 5).length, 0);
     return Math.max(headerLines, 1) * bodyLeading + bulletLines * bodyLeading + 4;
@@ -183,14 +387,49 @@ export const buildResumePDF = async resume => {
   const contact = [resume?.email, resume?.phone, resume?.location]
     .map(normalizeText)
     .filter(Boolean)
-    .join("  |  ");
-  if (contact) {
+  const profileLinks = normalizeLinks(resume?.profile_links);
+  const mailLink = profileLinks.find(link => link.url.toLowerCase().startsWith("mailto:"));
+  if (contact.length > 0) {
     setFont("normal", 9.2, 55);
-    const contactLines = doc.splitTextToSize(contact, contentWidth);
-    contactLines.forEach(line => {
-      doc.text(line, pageWidth / 2, y, { align: "center" });
-      y += 4.2;
+    const separator = "  |  ";
+    const separatorWidth = doc.getTextWidth(separator);
+    const totalWidth = contact.reduce((total, item) => total + doc.getTextWidth(item), 0) +
+      separatorWidth * Math.max(contact.length - 1, 0);
+    let contactX = Math.max(margin.left, (pageWidth - totalWidth) / 2);
+    contact.forEach((item, index) => {
+      const isEmail = normalizeText(resume?.email) === item;
+      const target = isEmail ? (mailLink?.url || `mailto:${item}`) : "";
+      let width;
+      if (target) width = linkedText(item, target, contactX, y);
+      else {
+        doc.text(item, contactX, y);
+        width = doc.getTextWidth(item);
+      }
+      contactX += width;
+      if (index < contact.length - 1) {
+        doc.text(separator, contactX, y);
+        contactX += separatorWidth;
+      }
     });
+    y += 4.8;
+  }
+
+  const visibleProfileLinks = profileLinks.filter(link => !link.url.toLowerCase().startsWith("mailto:"));
+  if (visibleProfileLinks.length > 0) {
+    setFont("normal", 9, 45);
+    const separator = "  |  ";
+    const separatorWidth = doc.getTextWidth(separator);
+    const totalWidth = visibleProfileLinks.reduce((total, link) => total + doc.getTextWidth(link.label), 0) +
+      separatorWidth * Math.max(visibleProfileLinks.length - 1, 0);
+    let profileX = Math.max(margin.left, (pageWidth - totalWidth) / 2);
+    visibleProfileLinks.forEach((link, index) => {
+      profileX += linkedText(link.label, link.url, profileX, y);
+      if (index < visibleProfileLinks.length - 1) {
+        doc.text(separator, profileX, y);
+        profileX += separatorWidth;
+      }
+    });
+    y += 4.6;
   }
   y += 4;
 
@@ -270,10 +509,11 @@ export const buildResumePDF = async resume => {
   return doc;
 };
 
-export const generateResumeLetterPDF = async resume => {
+export const generateResumeLetterPDF = async (resume, sourceLinks = [], sourceText = "") => {
   if (!resume) return;
-  const doc = await buildResumePDF(resume);
-  const safeName = normalizeText(resume.name || "Tailored_Resume")
+  const linkedResume = enrichResumeLinks(resume, sourceLinks, sourceText);
+  const doc = await buildResumePDF(linkedResume);
+  const safeName = normalizeText(linkedResume.name || "Tailored_Resume")
     .replace(/[^a-zA-Z0-9_-]+/g, "_");
   doc.save(`${safeName}_tailored_resume.pdf`);
 };

@@ -3,7 +3,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const executeScrape = async () => {
       try {
-        const clickAbleSpans = document.querySelectorAll('span[style*="pointer-events: auto;"]')
+        const clickAbleSpans = document.querySelectorAll('button[data-testid="expandable-text-button"]')
         for(const span of  clickAbleSpans) {
           const text = span.innerText.toLowerCase().trim()
           if(text.includes('more') || text.includes('...more')) {
@@ -15,12 +15,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const selectors = {
         title: [
           "[data-sdui-component='com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob'] span p",
-          "[class='df709709 _9f188749']"  
+          "[class='_91bbd6b4 _3331e8d0']"  
         ],
         company: [
           "[aria-label^='Company, '] a",
           "[aria-label^='Company, ']",
-          "[class='_91bbd6b4 _3331e8d0']"
+          "[class='_90d38c7f f001dc6e ec5954d8 _3331e8d0']"
         ],
         description: [
           "[data-sdui-component='com.linkedin.sdui.generated.jobseeker.dsl.impl.aboutTheJob'] span",
