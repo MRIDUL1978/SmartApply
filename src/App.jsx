@@ -1,15 +1,9 @@
-import './App.css'
-import Head from './components/head'
-import HeroSection from './components/HeroSection'
+import "./App.css";
+import HeroSection from "./components/HeroSection";
+import { PageShell } from "./components/ui";
 
 function App() {
-
-  return (
-    <>
-      <Head/>
-      <HeroSection/>
-    </>
-  )
+  return <PageShell><HeroSection /></PageShell>;
 }
 
 export default App

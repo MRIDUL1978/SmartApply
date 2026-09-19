@@ -1,214 +1,127 @@
-import React, { useEffect, useState } from "react";
-import Head from "../head";
-import { useUser } from "../../context/UserContext";
-import { IoMdDownload } from "react-icons/io";
-import { MdDelete } from "react-icons/md";
-import {db} from "../../config/firebase"
-import { collection, doc, getDocs, deleteDoc,query,orderBy } from "firebase/firestore";
-import { useAuth } from "../../context/AuthContext";
+import { useEffect, useRef, useState } from "react";
+import { FiChevronDown, FiClock, FiDownload, FiTrash2 } from "react-icons/fi";
+import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
 import Swal from "sweetalert2";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthContext";
+import { db } from "../../config/firebase";
 import { generateCoverLetterPDF } from "../../../utils/pdfGenerator";
+import { LoadingOverlay, PageShell } from "../ui";
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const StoredData = () => {
-  const {user} = useAuth();
+  const { user } = useAuth();
   const { userData } = useUser();
+  const root = useRef(null);
   const [jobHistory, setJobHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [downloading, setdownloading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    getJobHistory().then((data) => {
-      setJobHistory(data || []);
-      setLoading(false);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const deleteJob = (id) => {
-    deleteJobHistory(id)
-  };
-
-  const downloadPDF = async (job) => {
+    const getJobHistory = async () => {
+      if (!user) return [];
       try {
-        setdownloading(true)
-        await generateCoverLetterPDF(job.coverLetter, userData?.resumeName, job.jobTitle)
-      } catch (err) {
-        console.error("Error Generating PDF",err)
-      } finally {
-        setdownloading(false)
+        const historyRef = collection(db, "users", user.uid, "history");
+        const snapshot = await getDocs(query(historyRef, orderBy("date", "desc")));
+        return snapshot.docs.map((historyDoc) => ({ id: historyDoc.id, ...historyDoc.data() }));
+      } catch (error) {
+        console.error("Error fetching history", error);
+        return [];
       }
     };
+    getJobHistory().then((data) => { setJobHistory(data); setLoading(false); });
+  }, [user]);
 
-  const getJobHistory = async()=>{
-    if(!user) return;
-    try{
-      const historyRef = collection(db,"users",user.uid,"history");
-      const q = query(historyRef,orderBy("date","desc"));
-      const data = await getDocs(q);
-      return data.docs.map(doc=>({
-        id: doc.id,
-        ...doc.data()
-      }));
-    }catch(err){
-      console.error("Error fetching history",err);
+  useGSAP(() => {
+    if (loading || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cards = gsap.utils.toArray("[data-history-card]");
+    cards.forEach((card, index) => {
+      gsap.set(card, { zIndex: cards.length - index });
+      gsap.from(card, { y: 34, scale: .965, opacity: 0, duration: .58, ease: "power3.out", scrollTrigger: { trigger: card, start: "top 92%", toggleActions: "play none none reverse" } });
+    });
+  }, { scope: root, dependencies: [loading, jobHistory.length], revertOnUpdate: true });
+
+  const downloadPDF = async (job) => {
+    try {
+      setDownloading(true);
+      await generateCoverLetterPDF(job.coverLetter, userData?.resumeName, job.jobTitle);
+    } catch (error) {
+      console.error("Error generating PDF", error);
+    } finally {
+      setDownloading(false);
     }
-  }
+  };
 
-  const deleteJobHistory = async(historyDocId)=>{
-    if(!user) return;
-    try{
-      const result = await Swal.fire({
-        title:"Are You Sure?",
-        text:"You won't be able to revert this",
-        icon:"warning",
+  const deleteJob = async (historyDocId) => {
+    if (!user) return;
+    try {
+      const confirmation = await Swal.fire({
+        title: "Delete this scan?",
+        text: "The saved score, analysis, and cover letter will be removed.",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Yes!',
-        width: '320px', 
-        padding: '1em',
-        customClass: {
-          title: 'text-lg',    
-          htmlContainer: 'text-sm text-gray-600',
-          actions: 'mt-2',
-          popup: 'rounded-xl'  
-        }
-      })
-      if(!result.isConfirmed) return;
-      
-      const docRef = doc(db,"users",user.uid,"history",historyDocId);
-      await deleteDoc(docRef);
-      setJobHistory((prevHistory)=> prevHistory.filter((item)=>item.id !== historyDocId));
-
-      
-    }catch(err){
-      console.error("Error Deleting Scan",err);
+        confirmButtonColor: "#ff706a",
+        cancelButtonColor: "#30342f",
+        confirmButtonText: "Delete scan",
+        cancelButtonText: "Keep it",
+        width: "340px",
+      });
+      if (!confirmation.isConfirmed) return;
+      await deleteDoc(doc(db, "users", user.uid, "history", historyDocId));
+      setJobHistory((history) => history.filter((item) => item.id !== historyDocId));
+    } catch (error) {
+      console.error("Error deleting scan", error);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10 font-sans">
-      <Head />
-      <main className="max-w-3xl mx-auto px-5 py-8">
-        <section>
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Application History</h1>
-            <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-              {jobHistory.length} {jobHistory.length === 1 ? 'Item' : 'Items'}
-            </span>
+    <PageShell>
+      <main ref={root} className="page-main px-[22px] pb-12 pt-8">
+        <header className="mb-7 flex items-end justify-between gap-4">
+          <div><p className="eyebrow">Saved intelligence</p><h1 className="page-title mt-2">Scan history.</h1><p className="mt-3 text-[13px] text-[#8f978a]">Return to the evidence behind each application.</p></div>
+          <div className="mb-1 flex h-11 min-w-11 items-center justify-center rounded-[5px] border border-white/10 bg-white/[.035] px-3 text-xs font-semibold text-[#c9ff4a]" aria-label={`${jobHistory.length} saved scans`}>{jobHistory.length}</div>
+        </header>
+
+        {!loading && jobHistory.length === 0 ? (
+          <section className="surface flex min-h-[280px] flex-col items-center justify-center rounded-[9px] px-8 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/[.035] text-[#c9ff4a]"><FiClock size={20} /></span>
+            <h2 className="mt-5 text-xl font-semibold tracking-[-.03em]">Your evidence trail starts here.</h2>
+            <p className="mt-2 text-xs leading-5 text-[#8f978a]">Completed LinkedIn scans appear here automatically.</p>
+          </section>
+        ) : (
+          <div className="space-y-4">
+            {jobHistory.map((job) => (
+              <article key={job.id} data-history-card className="surface relative overflow-hidden rounded-[9px] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0"><p className="truncate text-[18px] font-semibold leading-tight tracking-[-.03em]" title={job.jobTitle}>{job.jobTitle}</p><p className="mt-1 truncate text-xs text-[#9ba397]">{job.company}</p>{job.date && <time className="mt-3 block text-[10px] font-semibold uppercase tracking-[.1em] text-[#60675e]">{new Date(job.date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</time>}</div>
+                  <div className="rounded-[5px] border border-[#c9ff4a]/20 bg-[#c9ff4a]/8 px-3 py-2 text-center"><span className="block text-xl font-bold leading-none tracking-[-.04em] text-[#c9ff4a]">{job.score}%</span><span className="mt-1 block text-[8px] font-bold uppercase tracking-[.12em] text-[#89947f]">match</span></div>
+                </div>
+
+                <div className="my-4 h-px bg-white/10" />
+                <div className="flex flex-wrap gap-1.5">
+                  {job.missingKeywords?.length ? job.missingKeywords.slice(0, 5).map((skill, index) => <span key={`${skill}-${index}`} className="rounded-[4px] border border-[#ff706a]/20 bg-[#ff706a]/8 px-2 py-1 text-[10px] text-[#ffaaa6]">{skill}</span>) : <span className="rounded-[4px] border border-[#c9ff4a]/20 bg-[#c9ff4a]/8 px-2 py-1 text-[10px] text-[#c9ff4a]">No critical keyword gaps</span>}
+                </div>
+
+                <details className="group mt-4 border-t border-white/10 pt-4">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-xs font-semibold text-[#cdd2c8]">Review analysis <FiChevronDown className="transition-transform duration-300 group-open:rotate-180" size={15} /></summary>
+                  <p className="pb-3 pt-2 text-xs leading-5 text-[#8f978a]">{job.reason}</p>
+                </details>
+
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={() => downloadPDF(job)} disabled={downloading} className="secondary-btn flex-1"><FiDownload size={15} /> Cover letter</button>
+                  <button type="button" onClick={() => deleteJob(job.id)} className="icon-btn danger" aria-label={`Delete ${job.jobTitle} scan`} title="Delete scan"><FiTrash2 size={16} /></button>
+                </div>
+              </article>
+            ))}
           </div>
-
-          {!loading && jobHistory.length === 0 ? (
-             <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="material-symbols-outlined text-gray-400 text-3xl">history</span>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">No History Yet</h3>
-                <p className="text-gray-500 mt-2 text-sm">Upload job details to start tracking your applications.</p>
-             </div>
-          ) : (
-            <div className="space-y-6">
-              {jobHistory.map((job) => (
-                <div key={job.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden transition-all hover:shadow-md">
-                   
-                  <div
-                    className={`absolute top-0 left-0 w-1.5 h-full rounded-l-2xl ${
-                      job.score >= 70
-                        ? "bg-green-500"
-                        : job.score >= 40
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                    }`}
-                  ></div>
-
-                
-                  <div className="pl-3 mb-5">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-900 leading-tight">{job.jobTitle}</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-gray-600 font-medium">{job.company}</span>
-                        </div>
-                         {job.date && (
-                            <p className="text-xs text-gray-400 mt-2 pl-[26px]">{new Date(job.date).toLocaleDateString()}</p>
-                         )}
-                      </div>
-                      <div className="flex flex-col items-end">
-                         <div className={`px-3 py-1 rounded-lg text-sm font-bold flex items-center gap-1 ${
-                            job.score >= 70 ? "bg-green-50 text-green-700" :
-                            job.score >= 40 ? "bg-yellow-50 text-yellow-700" :
-                            "bg-red-50 text-red-700"
-                         }`}>
-                           <span>{job.score}%</span>
-                           <span className="text-xs font-normal opacity-80">Match</span>
-                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pl-3 space-y-5">
-                    
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-3">
-                        Missing Keywords
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {job.missingKeywords &&
-                        job.missingKeywords.length > 0 ? (
-                          job.missingKeywords.map((skill, i) => (
-                            <span
-                              key={i}
-                              className="text-xs font-medium text-red-600 bg-red-50 px-2.5 py-1 rounded-md border border-red-100"
-                            >
-                              {skill}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-md border border-green-100 flex items-center gap-1">
-                            <span className="text-[14px]">✨</span> Great match!
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-gray-100 w-full"></div>
-
-                  
-                    <div>
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                        Analysis
-                      </span>
-                      <p className="text-gray-700 text-sm leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        {job.reason}
-                      </p>
-                    </div>
-
-                  
-                    <div className="flex items-center gap-3 pt-2 mt-4 border-t border-gray-100">
-                      <button
-                        onClick={() => downloadPDF(job)}
-                        disabled={downloading}
-                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm text-sm font-semibold"
-                      >
-                         <span><IoMdDownload size={24}/></span>
-                         Cover Letter
-                      </button>
-                      <button
-                        onClick={() => deleteJob(job.id)}
-                        className="flex items-center justify-center gap-2 bg-white text-red-600 px-4 py-2.5 rounded-xl border border-red-100 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-semibold"
-                        title="Delete from history"
-                      >
-                         <span><MdDelete size={24}/></span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        )}
       </main>
-    </div>
+      {loading && <LoadingOverlay label="Loading scan history" detail="Collecting your saved applications" />}
+    </PageShell>
   );
 };
 

@@ -1,178 +1,60 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router";
-import { FcGoogle } from "react-icons/fc";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { FiArrowUpRight, FiEye, FiEyeOff } from "react-icons/fi";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../config/firebase";
-import { Link } from "react-router";
-import Head from "../head";
-import { FaEye } from "react-icons/fa";
-import { FaEyeSlash } from "react-icons/fa";
-import { FadeLoader } from "react-spinners";
 import { toast } from "react-toastify";
-import { FaFacebook } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+import { auth } from "../../config/firebase";
+import { AuthFrame, Field, LoadingOverlay, SocialAuth } from "../ui";
 
 const Login = () => {
   const { signInWithGoogle, signInWithFacebook, user } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, seterrors] = useState('');
-  const [loading, setloading] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "" });
 
-  const [form, setForm] = useState({
-    email: '',
-    password: ''
-  });
+  useEffect(() => { if (user) navigate("/"); }, [user, navigate]);
 
-  const handleInputChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setloading(true);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
     try {
       await signInWithEmailAndPassword(auth, form.email, form.password);
-      toast.success('Login Successfull');
-    } catch (err) {
-      toast.error("Failed to login. Please check your credentials.");
-      seterrors(err.message);
-    }finally{
-      setloading(false);
+      toast.success("Welcome back.");
+    } catch (authError) {
+      console.error(authError);
+      setError("That email and password combination was not recognized.");
+      toast.error("Sign in failed.");
+    } finally {
+      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
 
   return (
     <>
-      <Head />
-      <main className="min-h-[calc(100vh-64px)] p-6 bg-linear-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <section className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3 tracking-tight">
-              Welcome Back
-            </h1>
-            <p className="text-gray-500 font-medium text-sm">
-              Sign in to continue to your dashboard
-            </p>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg shadow-blue-100/50 border border-white/60 space-y-5 hover:shadow-xl transition-shadow duration-300">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="text-left">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5 ml-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  name="email"
-                  id="email"
-                  value={form.email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-gray-700 placeholder-gray-400"
-                />
-              </div>
-              <div className="text-left flex flex-col">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5 ml-1">
-                  Password
-                </label>
-                {errors && (
-                  <p className="text-red-500 text-xs mb-2 px-1 py-1.5 bg-red-50 rounded-lg border border-red-100">
-                    {errors}
-                  </p>
-                )}
-                <div className="relative flex items-center">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    name="password"
-                    id="password"
-                    value={form.password}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-gray-700 placeholder-gray-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <FaEye size={20} /> : <FaEyeSlash size={20} />}
-                  </button>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white font-semibold py-2.5 rounded-xl hover:shadow-lg hover:shadow-blue-200 hover:scale-[1.02] transition-all duration-300 active:scale-[0.98] cursor-pointer"
-              >
-                Login
-              </button>
-            </form>
-
-            <span className="text-right">
-              <Link
-                to="/forgot-password"
-                className="text-xs text-blue-600 font-medium hover:text-indigo-600 hover:underline transition-colors"
-              >
-                Forgot Password?
-              </Link>
-            </span>
-
+      <AuthFrame eyebrow="Return to your work" title="Welcome back." description="Sign in to scan roles and revisit your application history.">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Email address" id="email">
+            <input className="text-field" type="email" name="email" id="email" autoComplete="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="you@example.com" />
+          </Field>
+          <Field label="Password" id="password" error={error}>
             <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-white text-gray-400 font-medium">Or continue with</span>
-              </div>
+              <input className="text-field pr-12" type={showPassword ? "text" : "password"} name="password" id="password" autoComplete="current-password" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Your password" />
+              <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1 top-1 grid h-11 w-11 place-items-center text-[#7f877c] transition hover:text-white" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <FiEyeOff size={17} /> : <FiEye size={17} />}</button>
             </div>
+          </Field>
+          <div className="flex justify-end"><Link to="/forgot-password" className="text-[11px] font-semibold text-[#c9ff4a] hover:underline">Forgot password?</Link></div>
+          <button type="submit" disabled={loading} className="primary-btn w-full">Sign in <FiArrowUpRight size={16} /></button>
+        </form>
 
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={signInWithGoogle}
-                aria-label="Sign in with Google"
-                className="flex items-center justify-center p-3 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-300 cursor-pointer"
-              >
-                <FcGoogle size={20} />
-              </button>
-              
-              <button
-                onClick={signInWithFacebook}
-                aria-label="Sign in with Facebook"
-                className="flex items-center justify-center p-3 rounded-full bg-[#1877F2] border border-[#1877F2] text-white hover:bg-[#166FE5] hover:shadow-sm transition-all duration-300 cursor-pointer"
-              >
-                <FaFacebook size={20} />
-              </button>
-            </div>
-
-            <p className="text-sm text-center text-gray-600">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-blue-600 font-medium hover:text-indigo-600 hover:underline transition-colors">
-                Sign Up
-              </Link>
-            </p>
-          </div>
-        </section>
-
-        {loading && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm cursor-wait">
-            <FadeLoader 
-              color="#2e46de" 
-              loading={loading} 
-              size={20}
-              aria-label="Loading Spinner"
-            />
-            <span className="mt-8 font-medium text-blue-900 animate-pulse"> 
-              Logging In
-            </span>
-          </div>
-        )}
-      </main>
+        <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-white/10" /><span className="text-[9px] font-bold uppercase tracking-[.12em] text-[#626960]">Or continue with</span><span className="h-px flex-1 bg-white/10" /></div>
+        <SocialAuth onGoogle={signInWithGoogle} onFacebook={signInWithFacebook} />
+        <p className="mt-5 text-center text-xs text-[#899185]">New to SmartApply? <Link to="/signup" className="font-semibold text-[#f2f4ee] hover:text-[#c9ff4a]">Create an account</Link></p>
+      </AuthFrame>
+      {loading && <LoadingOverlay label="Signing you in" detail="Opening your application workspace" />}
     </>
   );
 };

@@ -20,7 +20,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <HashRouter>
       <ToastContainer
-        position="top-right"
+        position="top-center"
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
@@ -29,7 +29,7 @@ createRoot(document.getElementById("root")).render(
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="colored"
+        theme="dark"
       />
       
       <AuthProvider>

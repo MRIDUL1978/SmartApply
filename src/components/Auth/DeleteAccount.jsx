@@ -1,11 +1,11 @@
-import React, { useState } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useState } from "react";
+import { FiAlertTriangle, FiArrowLeft, FiTrash2 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 import { toast } from "react-toastify";
-import { MdWarning } from "react-icons/md";
+import { useAuth } from "../../context/AuthContext";
 import { permanentlyDeleteAccount } from "../../../utils/accountService";
-import Head from "../head";
+import { LoadingOverlay, PageShell } from "../ui";
 
 const DeleteAccount = () => {
   const { user } = useAuth();
@@ -13,109 +13,50 @@ const DeleteAccount = () => {
   const [loading, setLoading] = useState(false);
 
   const handleDeleteAccount = async () => {
-    const result = await Swal.fire({
-      title: 'Delete Entire Account?',
-      text: "This will permanently delete your profile, resume, and all scanned job history. This action CANNOT be undone!",
-      icon: 'error',
+    const confirmation = await Swal.fire({
+      title: "Delete your account?",
+      text: "Your profile, resume, and complete scan history will be permanently removed.",
+      icon: "error",
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete everything',
-      width: '320px',
-      padding: '1em',
-      customClass: {
-        title: 'text-lg',
-        htmlContainer: 'text-sm text-gray-600',
-        actions: 'mt-2',
-        popup: 'rounded-xl'
-      }
+      confirmButtonColor: "#ff706a",
+      cancelButtonColor: "#30342f",
+      confirmButtonText: "Delete everything",
+      cancelButtonText: "Keep my account",
+      width: "340px",
     });
 
-    if (result.isConfirmed) {
-      setLoading(true);
-      try {
-        await permanentlyDeleteAccount(user);
-        toast.success("Account permanently deleted.");
-        navigate('/login');
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Authentication Expired',
-            text: 'For security reasons, Firebase requires you to log out and log back in before deleting your account.'
-          });
-        } else {
-          toast.error("Failed to delete account: " + error.message);
-        }
-      } finally {
-        setLoading(false);
+    if (!confirmation.isConfirmed) return;
+    setLoading(true);
+    try {
+      await permanentlyDeleteAccount(user);
+      toast.success("Account permanently deleted.");
+      navigate("/login");
+    } catch (error) {
+      if (error.code === "auth/requires-recent-login") {
+        Swal.fire({ icon: "warning", title: "Sign in again first", text: "For security, sign out and sign back in before deleting your account." });
+      } else {
+        toast.error(`Account deletion failed: ${error.message}`);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <>
-      <Head />
-      <main className="min-h-[calc(100vh-64px)] p-6 bg-linear-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <section className="w-full max-w-sm">
-
-          {/* Page heading */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3 tracking-tight">
-              Account Settings
-            </h1>
-            <p className="text-gray-500 font-medium text-sm">
-              Manage your account preferences
-            </p>
+    <PageShell>
+      <main className="page-main flex min-h-[538px] items-center px-[22px] py-8">
+        <section className="w-full">
+          <p className="eyebrow text-[#ff918b]">Permanent action</p>
+          <h1 className="page-title mt-2 max-w-[330px]">Leave no account data behind.</h1>
+          <div className="surface mt-7 overflow-hidden rounded-[9px] border-[#ff706a]/25">
+            <div className="flex items-center gap-3 border-b border-[#ff706a]/20 bg-[#ff706a]/7 px-5 py-4 text-[#ff9e99]"><FiAlertTriangle size={18} /><h2 className="text-sm font-semibold">This cannot be undone</h2></div>
+            <div className="p-5"><p className="text-[13px] leading-6 text-[#9ca499]">Deleting your account removes your saved resume, generated cover letters, and complete job-scan history from SmartApply.</p><button type="button" onClick={handleDeleteAccount} disabled={loading} className="secondary-btn danger-btn mt-5 w-full"><FiTrash2 size={16} /> Delete my account</button></div>
           </div>
-
-          {/* Danger zone card */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-blue-100/50 border border-white/60 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-
-            {/* Card header */}
-            <div className="bg-red-50/80 px-6 py-4 border-b border-red-100 flex items-center gap-3">
-              <MdWarning className="text-red-500" size={22} />
-              <h3 className="text-base font-semibold text-red-600">Danger Zone</h3>
-            </div>
-
-            {/* Card body */}
-            <div className="p-6 space-y-5">
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Once you delete your account, all of your saved resumes,
-                cover letters, and job scan history will be permanently wiped
-                from our servers. Please be certain.
-              </p>
-
-              <button
-                onClick={handleDeleteAccount}
-                disabled={loading}
-                className={`w-full py-2.5 rounded-xl text-white font-semibold transition-all duration-300 ${
-                  loading
-                    ? "bg-red-300 cursor-not-allowed"
-                    : "bg-red-500 hover:bg-red-600 hover:shadow-lg hover:shadow-red-200 hover:scale-[1.02] active:scale-[0.98]"
-                }`}
-              >
-                {loading ? "Deleting…" : "Delete My Account"}
-              </button>
-            </div>  
-          </div>
-
-          {/* Back link */}
-          <div className="mt-6 text-center">
-            <Link
-              to="/"
-              className="text-sm text-blue-600 font-medium hover:text-indigo-600 hover:underline transition-colors flex items-center justify-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Home
-            </Link>
-          </div>
-
+          <Link to="/" className="secondary-btn mt-3 w-full"><FiArrowLeft size={15} /> Return to workspace</Link>
         </section>
       </main>
-    </>
+      {loading && <LoadingOverlay label="Deleting your account" detail="Removing profile and history data" />}
+    </PageShell>
   );
 };
 
